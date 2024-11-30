@@ -7,7 +7,7 @@
 .LINK
     Rubrik Automation Page: build.rubrik.com
 .EXAMPLE
-    .\set-TieringExistingSnapshots.ps1 -serviceAccountFile .\sa.json -clusterName pso-brik03 -archivalLocationName 'ArchivalMigration-ArchiveTier-pso-brik03' -nasShareName Fileserver
+    Example
 #>
 #Requires -Version 7.0
 [cmdletbinding()]
@@ -101,7 +101,7 @@ function Connect-RSC{
 
 $rsc = connect-rsc
 
-function Get-Nasshares([object]$cluster, [string]$sharename) {
+function Get-Nasshare([object]$cluster, [string]$sharename) {
     $payload = @{
         query = 'query NasShares($filter: [Filter!]) {
                 nasShares(filter: $filter) {
@@ -125,6 +125,34 @@ function Get-Nasshares([object]$cluster, [string]$sharename) {
                 @{
                     field = "NAME_EXACT_MATCH"
                     texts = $sharename
+                }
+            )            
+        }
+    }
+    $response = (Invoke-RestMethod -Method POST -Uri $rsc.endpoint -Body $($payload | ConvertTo-JSON -Depth 100) -Headers $rsc.headers).data.nasShares.nodes
+    return $response
+}
+
+function Get-Nasshares([object]$cluster) {
+    $payload = @{
+        query = 'query NasShares($filter: [Filter!]) {
+                nasShares(filter: $filter) {
+                    nodes {
+                    id
+                    name
+                    effectiveSlaDomain {
+                        name
+                        id
+                        
+                    }
+                    }
+                }
+            }'
+        variables = @{
+            filter = @(
+                @{
+                    field = "CLUSTER_ID"
+                    texts = $cluster.id
                 }
             )            
         }
@@ -201,19 +229,57 @@ if($null -eq $thisCluster){
 } else {
     Write-Log ('Found cluster {0} with id {1}' -f $thisCluster.name, $thiscluster.id)
 }
-$thisShare = Get-Nasshares -cluster $thisCluster -sharename $nasShareName
-if($null -eq $thisShare){
-    Write-Log -isError ('Could not find share, check spelling and permissions')
-} else {
-    Write-Log ('Found share {0} with id {1}' -f $thisshare.name, $thisshare.id)
-}
-$thisArchive = Get-ArchivalLocations | Where-Object name -eq $archivalLocationName
-if($null -eq $thisArchive){
-    Write-Log -isError ('Could not find Archival location, check spelling and permissions')
-} else {
-    Write-Log ('Found Archival Location {0} with id {1}' -f $thisArchive.name, $thisArchive.id)
-}
-Write-Log('Attempting to start object tiering')
 
-# Commented out line for object tiering below
-#Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.id
+if($nasShareName){
+    $thisShare = Get-Nasshare -cluster $thisCluster -sharename $nasShareName
+    if($null -eq $thisShare){
+        Write-Log -isError ('Could not find share, check spelling and permissions')
+    } else {
+        Write-Log ('Found share {0} with id {1}' -f $thisshare.name, $thisshare.id)
+    }
+    $thisArchive = Get-ArchivalLocations | Where-Object name -eq $archivalLocationName
+    if($null -eq $thisArchive){
+        Write-Log -isError ('Could not find Archival location, check spelling and permissions')
+    } else {
+        Write-Log ('Found Archival Location {0} with id {1}' -f $thisArchive.name, $thisArchive.id)
+    }
+    Write-Log('Starting tier job of {0}' -f $thisShare.name)
+    Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.id
+} else {
+    $statusSet = [System.Collections.ArrayList]::new()
+    Write-Log('No nassharename specified iterating')
+    $allNasShares = Get-Nasshares -cluster $thisCluster
+    Write-Log('Found {0}' -f $allNasShares.count)
+    $confirm = Read-Host('Proceed with tiering of all shares? y/n')
+    if($confirm -eq 'y'){
+        $Archive = Get-ArchivalLocations | Where-Object name -eq $archivalLocationName
+        Write-Log ('Found Archival Location {0} with id {1}' -f $Archive.name, $Archive.id)
+        foreach($share in $allNasShares){
+            Write-Log ('Found share {0} with id {1}' -f $share.name, $share.id)
+            $status = "Started"
+            try{
+                $operation = Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.id
+            } catch {
+                $status = "Failed"
+            }
+            if($operation.errors){
+                $status = "Failed"
+            }
+            if($null -eq $operation.errors){
+                Write-Log -isSuccess('{0} tiering started' -f $share.name)
+            } else {
+                Write-Log -isWarning('{0} tiering failed' -f $share.name)
+            }
+            $thisObject = [PSCustomObject]@{
+                Name = $share.Name
+                Id = $share.Id
+                TieringStarted = $status
+            }
+            $statusSet.add($thisObject) | Out-Null
+        }
+    Write-Host('Statuses:')
+    $statusSet
+    } else {
+        $allNasShares
+    }
+}

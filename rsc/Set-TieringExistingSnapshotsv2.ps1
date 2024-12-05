@@ -110,8 +110,7 @@ function Get-Nasshare([object]$cluster, [string]$sharename) {
                     name
                     effectiveSlaDomain {
                         name
-                        id
-                        
+                        id  
                     }
                     }
                 }
@@ -214,7 +213,7 @@ function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [s
                 clusterUuid = $clusterUuid
                 objectTierInfo = @{
                     locationId = $archivalLocationId
-                    objectIds = $objectId
+                    objectIds = @($objectId)
                 }
             }
         }

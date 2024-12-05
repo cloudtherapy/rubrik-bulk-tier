@@ -7,7 +7,7 @@
 .LINK
     Rubrik Automation Page: build.rubrik.com
 .EXAMPLE
-    Example
+    .\Set-TieringExistingSnapshotsv2.ps1 -serviceAccountFile C:\Users\Carlos\Downloads\cet-svc-cmoreira.json -clusterName tp-rubrik-edge -archivalLocationName 'S3:cetech-rubrik-aws-tier (tp-rubrik-edge)' -nasShareName vhbsmb02
 #>
 #Requires -Version 7.0
 [cmdletbinding()]

@@ -7,8 +7,7 @@
 .LINK
     Rubrik Automation Page: build.rubrik.com
 .EXAMPLE
-    .\set-TieringExistingSnapshots.ps1 -serviceAccountFile .\sa.json -clusterName pso-brik03 -archivalLocationName 'ArchivalMigration-ArchiveTier-pso-brik03' -nasShareName Fileserver
-    .\Set-TieringExistingSnapshots.ps1 -serviceAccountFile C:\Users\cmoreira\Downloads\cet-svc-cmoreira.json -clusterName tp-rubrik-edge -archivalLocationName S3:cetech-rubrik-aws-tier -nasShareName downloads
+    .\Set-TieringExistingSnapshotsv1.ps1 -serviceAccountFile C:\Users\Carlos\Downloads\cet-svc-cmoreira.json -clusterName tp-rubrik-edge -archivalLocationName 'S3:cetech-rubrik-aws-tier (tp-rubrik-edge)' -nasShareName vhbsmb02
 #>
 #Requires -Version 7.0
 [cmdletbinding()]

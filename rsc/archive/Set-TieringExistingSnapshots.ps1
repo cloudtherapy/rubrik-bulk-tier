@@ -194,7 +194,7 @@ function Get-Clusters() {
     return $response
 }
 
-function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [string[]] $objectid) {
+function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [string] $objectid) {
     $payload = @{
         query = 'mutation BulkTierExistingSnapshots($input: BulkTierExistingSnapshotsInput!) {
             bulkTierExistingSnapshots(input: $input) {
@@ -213,7 +213,8 @@ function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [s
             input = @{
                 clusterUuid = $clusterUuid
                 objectTierInfo = @{
-                    objectIds = @($objectId)
+                    locationId = $archivalLocationId
+                    objectIds = $objectId
                 }
             }
         }
@@ -247,8 +248,7 @@ if($nasShareName){
 } else {
     $statusSet = [System.Collections.ArrayList]::new()
     Write-Log('No nassharename specified iterating')
-    #$allNasShares = Get-Nasshares -cluster $thisCluster | select -first 5
-    $allNasShares = Get-Nasshares -cluster $thisCluster
+    $allNasShares = Get-Nasshares -cluster $thisCluster | select -first 5
     Write-Log('Found {0}' -f $allNasShares.count)
     $confirm = Read-Host('Proceed with tiering of all shares? y/n')
     if($confirm -eq 'y'){

@@ -7,7 +7,7 @@
 .LINK
     Rubrik Automation Page: build.rubrik.com
 .EXAMPLE
-    .\Set-TieringExistingSnapshotsv2.ps1 -serviceAccountFile C:\Users\Carlos\Downloads\cet-svc-cmoreira.json -clusterName tp-rubrik-edge -archivalLocationName 'S3:cetech-rubrik-aws-tier (tp-rubrik-edge)' -nasShareName vhbsmb02
+    Example
 #>
 #Requires -Version 7.0
 [cmdletbinding()]
@@ -110,7 +110,8 @@ function Get-Nasshare([object]$cluster, [string]$sharename) {
                     name
                     effectiveSlaDomain {
                         name
-                        id  
+                        id
+                        
                     }
                     }
                 }
@@ -134,29 +135,34 @@ function Get-Nasshare([object]$cluster, [string]$sharename) {
 
 function Get-Nasshares([object]$cluster) {
     $payload = @{
-        query = 'query NasShares($filter: [Filter!]) {
-                nasShares(filter: $filter) {
-                    nodes {
-                    id
-                    name
-                    effectiveSlaDomain {
-                        name
-                        id
-                        
-                    }
-                    }
-                }
-            }'
+        query = 'query NasAllSharesQuery($first: Int, $after: String, $sortBy: HierarchySortByField, $sortOrder: SortOrder, $filter: [Filter!]) {
+  nasShares(
+    first: $first
+    after: $after
+    sortBy: $sortBy
+    sortOrder: $sortOrder
+    filter: $filter
+  ) {
+    edges {
+      node {
+        id
+        name
+        primaryFileset {
+          id
+          effectiveSlaDomain {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}'
         variables = @{
-            filter = @(
-                @{
-                    field = "CLUSTER_ID"
-                    texts = $cluster.id
-                }
-            )            
+                       
         }
     }
-    $response = (Invoke-RestMethod -Method POST -Uri $rsc.endpoint -Body $($payload | ConvertTo-JSON -Depth 100) -Headers $rsc.headers).data.nasShares.nodes
+    $response = (Invoke-RestMethod -Method POST -Uri $rsc.endpoint -Body $($payload | ConvertTo-JSON -Depth 100) -Headers $rsc.headers).data.nasShares.edges.node
     return $response
 }
 
@@ -193,7 +199,7 @@ function Get-Clusters() {
     return $response
 }
 
-function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [string] $objectid) {
+function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [string[]] $objectid) {
     $payload = @{
         query = 'mutation BulkTierExistingSnapshots($input: BulkTierExistingSnapshotsInput!) {
             bulkTierExistingSnapshots(input: $input) {
@@ -212,7 +218,6 @@ function Set-ObjectTiering([string]$clusterUuid, [string]$archivalLocationId, [s
             input = @{
                 clusterUuid = $clusterUuid
                 objectTierInfo = @{
-                    locationId = $archivalLocationId
                     objectIds = @($objectId)
                 }
             }
@@ -247,6 +252,7 @@ if($nasShareName){
 } else {
     $statusSet = [System.Collections.ArrayList]::new()
     Write-Log('No nassharename specified iterating')
+    #$allNasShares = Get-Nasshares -cluster $thisCluster | select -first 5
     $allNasShares = Get-Nasshares -cluster $thisCluster
     Write-Log('Found {0}' -f $allNasShares.count)
     $confirm = Read-Host('Proceed with tiering of all shares? y/n')

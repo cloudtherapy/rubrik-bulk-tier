@@ -108,6 +108,9 @@ function Get-Nasshare([object]$cluster, [string]$sharename) {
                     nodes {
                     id
                     name
+                    primaryFileset {
+                        id
+                    }
                     effectiveSlaDomain {
                         name
                         id
@@ -140,6 +143,9 @@ function Get-Nasshares([object]$cluster) {
                     nodes {
                     id
                     name
+                    primaryFileset {
+                        id
+                    }
                     effectiveSlaDomain {
                         name
                         id
@@ -243,11 +249,10 @@ if($nasShareName){
         Write-Log ('Found Archival Location {0} with id {1}' -f $thisArchive.name, $thisArchive.id)
     }
     Write-Log('Starting tier job of {0}' -f $thisShare.name)
-    Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.id
+    Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.primaryFileset.id
 } else {
     $statusSet = [System.Collections.ArrayList]::new()
     Write-Log('No nassharename specified iterating')
-    #$allNasShares = Get-Nasshares -cluster $thisCluster | select -first 5
     $allNasShares = Get-Nasshares -cluster $thisCluster
     Write-Log('Found {0}' -f $allNasShares.count)
     $confirm = Read-Host('Proceed with tiering of all shares? y/n')
@@ -258,7 +263,7 @@ if($nasShareName){
             Write-Log ('Found share {0} with id {1}' -f $share.name, $share.id)
             $status = "Started"
             try{
-                $operation = Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.id
+                $operation = Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.primaryFileset.id
             } catch {
                 $status = "Failed"
             }

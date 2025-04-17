@@ -143,6 +143,7 @@ function Get-Nasshares([object]$cluster) {
                     nodes {
                     id
                     name
+                    shareType
                     primaryFileset {
                         id
                     }
@@ -254,7 +255,26 @@ if($nasShareName){
     $statusSet = [System.Collections.ArrayList]::new()
     Write-Log('No nassharename specified iterating')
     $allNasShares = Get-Nasshares -cluster $thisCluster
-    Write-Log('Found {0}' -f $allNasShares.count)
+    # Filter to only NAS shares with an SLA applied by checking primaryFileset.id
+    $allNasShares = $allNasShares | Where-Object { $_.primaryFileset -and $_.primaryFileset.id }
+    # Interactive protocol filter with numbered options
+    Write-Host "Select which share types you want to see:"
+    Write-Host "1. SMB"
+    Write-Host "2. NFS"
+    Write-Host "3. BOTH"
+    $protocolNumber = Read-Host 'Enter the number corresponding to your choice'
+    switch ($protocolNumber) {
+        '1' { $protocolChoice = 'SMB' }
+        '2' { $protocolChoice = 'NFS' }
+        '3' { $protocolChoice = 'BOTH' }
+        default { Write-Log -isWarning 'Invalid input, showing all shares.'; $protocolChoice = 'BOTH' }
+    }
+    switch ($protocolChoice.ToUpper()) {
+        'SMB'  { $allNasShares = $allNasShares | Where-Object { $_.shareType -eq 'SMB' } }
+        'NFS'  { $allNasShares = $allNasShares | Where-Object { $_.shareType -eq 'NFS' } }
+        'BOTH' { }
+    }
+    Write-Log('Found {0} shares with a primaryFileset (SLA) applied and matching protocol' -f $allNasShares.count)
     $confirm = Read-Host('Proceed with tiering of all shares? y/n')
     if($confirm -eq 'y'){
         $Archive = Get-ArchivalLocations | Where-Object name -eq $archivalLocationName
@@ -263,7 +283,7 @@ if($nasShareName){
             Write-Log ('Found share {0} with id {1}' -f $share.name, $share.id)
             $status = "Started"
             try{
-                $operation = Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $thisShare.primaryFileset.id
+                $operation = Set-ObjectTiering -clusterUuid $thisCluster.id -archivalLocationId $thisArchive.id -objectid $share.primaryFileset.id
             } catch {
                 $status = "Failed"
             }
@@ -285,6 +305,6 @@ if($nasShareName){
     Write-Host('Statuses:')
     $statusSet
     } else {
-        $allNasShares
+        $allNasShares | Select-Object id, name, shareType, primaryFileset
     }
 }
